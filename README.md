@@ -14,7 +14,7 @@ This fork, `craigmdennis/Vibepollo`, carries the additions of the `craigmdennis/
 | `GET /api/sessions`: which paired clients are streaming now, for home automation; `streaming` and `session_count` in `GET /api/metadata` | `src/sessions_api.h`, `src/confighttp.cpp` |
 | A request body cap of 1 MiB on the GameStream servers | `src/nvhttp.cpp` |
 | Update checks against this fork's releases | `cmake/prep/build_version.cmake` |
-| Windows build and install scripts | `scripts/build-windows.ps1`, `scripts/install-local.ps1` |
+| Windows build, install, release, and update scripts | `scripts/build-windows.ps1`, `scripts/install-local.ps1`, `scripts/publish-release.ps1`, `scripts/update-vibepollo.ps1`, [scripts/DISTRIBUTION.md](scripts/DISTRIBUTION.md) |
 
 ### Selene routes
 
