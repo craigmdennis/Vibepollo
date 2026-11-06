@@ -1,5 +1,16 @@
 # Vibepollo
 
+## About this fork
+
+This fork, `craigmdennis/Vibepollo`, is Vibepollo release `2.0.6` (commit `5e6ed8594`) plus tooling to build, install, and update it on the owner's machines. Each feature it adds arrives as its own pull request, built so it can also go upstream on its own.
+
+| Fork tooling | Where |
+|---|---|
+| Unsigned setup program built in CI for every pull request | `.github/workflows/fork-installer.yml` |
+| Local build and an install that keeps the host's pairings | `scripts/build-windows.ps1`, `scripts/install-local.ps1` |
+| Releases and updates from this fork | `scripts/publish-release.ps1`, `scripts/update-vibepollo.ps1`, `cmake/prep/build_version.cmake`, `scripts/DISTRIBUTION.md` |
+| Home Assistant sensors from the existing API | [`docs/home-assistant.md`](docs/home-assistant.md) |
+
 ## What is Vibepollo?
 
 Vibepollo is an AI‑enhanced version of Apollo, a popular remote streaming application. It intends to integrate all scripts from myself (Nonary) and more.
