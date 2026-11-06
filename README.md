@@ -1,5 +1,64 @@
 # Vibepollo
 
+## What this fork adds
+
+This fork, `craigmdennis/Vibepollo`, carries the additions of the `craigmdennis/Apollo` fork onto Vibepollo. It serves two clients without a client change: Selene, the Apple TV client, and Calliope, the microphone app for iPhone and Mac. Where Vibepollo already had a feature, the fork uses Vibepollo's version.
+
+| Addition | Where |
+|---|---|
+| Calliope remote microphone: pairing, encrypted UDP audio, playback into the Steam Streaming Microphone, tray notices | `src/mic*.cpp`, `src/platform/windows/mic_write.cpp`, the Microphones card on the Clients page (Devices page in V2) |
+| Steam game activity, Steam art, and the desktop wallpaper for Selene | `src/steam_activity*.cpp`, routes in `src/nvhttp.cpp` |
+| `activeclient` in HTTPS `serverinfo`: the device name of the running stream | `src/nvhttp.cpp` |
+| The **Share game activity** client permission (`0x00200000`) and the `share_game_activity` host setting | client permission lists, Settings |
+| `POST /moonlight/sleep` for Selene, answered by Vibepollo's power action service | `src/nvhttp.cpp` |
+| A request body cap of 1 MiB on the GameStream servers | `src/nvhttp.cpp` |
+| Update checks against this fork's releases | `cmake/prep/build_version.cmake` |
+| Windows build and install scripts | `scripts/build-windows.ps1`, `scripts/install-local.ps1` |
+
+### Selene routes
+
+All routes are on the HTTPS GameStream port (47984 by default) and need the client certificate that pairing issues.
+
+| Route | Answer |
+|---|---|
+| `GET /moonlight/steam` | JSON: the last Steam game played, up to 5 recent games, and the running game. `{"version":1,"sharing":false}` when the client lacks Share game activity or the host setting is off. |
+| `GET /moonlight/steam/art/{appId}/{kind}` | Library art. `kind` is `hero`, `logo`, or `capsule`. 404 when missing or not permitted. |
+| `GET /moonlight/wallpaper` | The signed-in user's desktop wallpaper. 404 when missing or not permitted. |
+| `POST /moonlight/sleep` | GameStream XML. Status 200 with `sleep` 1 when accepted. 403 `Permission denied` without the client's **Allow sleep** setting, 409 `A session is running` while a stream runs, 501 when the host cannot sleep. |
+
+`POST /moonlight/sleep` differs from `/power-actions/v1/sleep` in one rule: an app left running after its stream ended does not block sleep. Selene offers Sleep beside an app it can resume. A client paired under the Apollo fork with its sleep permission (`0x00400000`) starts with **Allow sleep** on.
+
+The design of the Steam routes is in [the specification](docs/superpowers/specs/2026-11-02-steam-activity-tvos-client-design.md).
+
+### Calliope routes
+
+| Route | Authentication | Purpose |
+|---|---|---|
+| `POST /api/mic/pair` | None, LAN only | Start a pairing |
+| `POST /api/mic/pair/status` | None, LAN only | Poll for the pairing result, which returns the mic token once |
+| `POST /api/mic/session` | Mic token | Start a session |
+| `DELETE /api/mic/session` | Mic token | End the session |
+| `POST /api/mic/pin` | Web UI login | Submit the PIN that Calliope shows |
+| `GET /api/mic/list` | Web UI login or a scoped API token | List paired microphones and the connected one |
+| `POST /api/mic/remove` | Web UI login | Remove one microphone |
+
+Audio arrives on UDP at the base port plus 13 (48002 by default). See [the microphone guide](docs/remote_microphone.md).
+
+### Integration API
+
+The Apollo fork's read-only API key is replaced by Vibepollo's scoped API tokens. For a home automation integration, create a token scoped to `GET /api/clients/list` and `GET /api/mic/list`. Both lists report which client or microphone is connected.
+
+### Build and install on Windows
+
+The prerequisites are in the help text of `scripts/build-windows.ps1`. Then:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build-windows.ps1 -Version 2.0.6
+powershell -ExecutionPolicy Bypass -File scripts\install-local.ps1
+```
+
+The first script produces `cmake-build-release\cpack_artifacts\VibepolloSetup.exe`. The second runs it. When it replaces Apollo, the setup program uninstalls Apollo and keeps no settings. The install script backs up the config folder first, then restores the host certificate, `sunshine_state.json`, and `mic_state.json`, so Selene and Calliope stay paired.
+
 ## What is Vibepollo?
 
 Vibepollo is an AI‑enhanced version of Apollo, a popular remote streaming application. It intends to integrate all scripts from myself (Nonary) and more.
