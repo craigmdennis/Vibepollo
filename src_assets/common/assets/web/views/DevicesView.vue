@@ -269,7 +269,8 @@ const filteredDevices = computed(() => {
   return list;
 });
 
-const PERMISSION_ALL = 0x071f1f00;
+// Includes the Apollo fork's Share game activity bit (0x00200000).
+const PERMISSION_ALL = 0x073f1f00;
 
 function permissionMask(device: PairedDevice): number {
   const parsed = Number(device.perm ?? 0);
