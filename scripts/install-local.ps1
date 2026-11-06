@@ -52,7 +52,12 @@ $keep = @("credentials\cacert.pem", "credentials\cakey.pem", "sunshine_state.jso
 $backup = $null
 if (Test-Path $config) {
   $backup = Join-Path $env:ProgramData ("ApolloConfigBackup\" + (Get-Date -Format "yyyyMMdd-HHmmss"))
-  New-Item -ItemType Directory -Path (Split-Path $backup) -Force | Out-Null
+  $backupRoot = Split-Path $backup
+  New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
+  # The backup holds the host's private key; ProgramData lets every local user read new folders.
+  # Restrict it to SYSTEM and Administrators before anything is copied in.
+  & icacls $backupRoot /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw "Could not restrict access to $backupRoot; nothing was backed up or installed." }
   Copy-Item -Path $config -Destination $backup -Recurse
   Write-Host "Backed up $config to $backup"
 }
