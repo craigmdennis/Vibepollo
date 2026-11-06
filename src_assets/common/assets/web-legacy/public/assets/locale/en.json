@@ -2198,6 +2198,20 @@
     "logged_out_desc": "You have been signed out of Vibepollo.",
     "login": "Log in"
   },
+  "mic": {
+    "title": "Microphones",
+    "desc": "Pair a phone or Mac running Calliope as a microphone for this PC. Open Calliope, choose this PC, and enter the PIN it shows. Microphones are separate from the streaming devices.",
+    "pin": "Calliope PIN",
+    "name": "Microphone name (optional)",
+    "pair": "Pair microphone",
+    "pair_success": "{name} is paired as a microphone. Tap Connect in Calliope to start. While it is connected, this PC uses it as the default microphone.",
+    "pair_failure": "Pairing failed. Check the PIN in Calliope. After three wrong PINs, tap Get a new PIN in Calliope.",
+    "request_failed": "The host did not answer. Reload this page, sign in again, and repeat the action.",
+    "none": "There are no paired microphones.",
+    "connected": "Connected",
+    "remove": "Remove",
+    "remove_confirm": "Remove {name}? It disconnects now and must be paired again to reconnect."
+  },
   "permissions": {
     "group_action": "Actions",
     "group_operation": "Operations",

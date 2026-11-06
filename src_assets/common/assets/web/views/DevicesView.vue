@@ -22,6 +22,7 @@ import ClientSettingsEditor, {
   type HdrProfileEntry,
 } from '@/components/devices/ClientSettingsEditor.vue';
 import DisplayTopologyEditor from '@/components/devices/DisplayTopologyEditor.vue';
+import MicrophonesPanel from '@/components/devices/MicrophonesPanel.vue';
 import { settingsDefaults } from '@/configs/settingsSchema';
 import { formatRelativeTime } from '@/utils/format';
 
@@ -1097,6 +1098,8 @@ onBeforeUnmount(() => {
       </summary>
       <DisplayTopologyEditor />
     </details>
+
+    <MicrophonesPanel />
 
     <section v-if="devices.length" class="devices-bulk-actions">
       <AppButton
