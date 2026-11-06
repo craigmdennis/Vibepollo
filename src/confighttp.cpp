@@ -523,6 +523,11 @@ namespace confighttp {
           continue;
         }
 
+        // Read on every Selene activity request, so a change applies to the next one.
+        if (key == "share_game_activity") {
+          continue;
+        }
+
         if (is_rtx_hdr_live_key(key)) {
           continue;
         }

@@ -5514,3 +5514,7 @@ Allow enabled paired streaming clients to request hardware metrics v1 during the
 ### hardware_metrics_interval
 
 Minimum time between completed client hardware samples in milliseconds. Default: `1000`; range: `500`–`10000`. Samples are collected on request and shared between clients. Enabling the setting alone does not poll hardware.
+
+### share_game_activity
+
+Allow paired clients that hold the **Share game activity** permission to read the last Steam game played on this host, its library artwork, the signed-in user's desktop wallpaper, and the device name of the running stream (the `activeclient` element of HTTPS `serverinfo`). The Selene Apple TV client reads them. Default: `enabled`. When disabled, every client is treated as lacking the permission.
