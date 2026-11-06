@@ -2593,7 +2593,12 @@ namespace nvhttp {
               named_cert_p->enabled = util::get_non_string_json_value<bool>(el, "enabled", true);
               named_cert_p->enable_legacy_ordering = util::get_non_string_json_value<bool>(el, "enable_legacy_ordering", true);
               named_cert_p->allow_client_commands = util::get_non_string_json_value<bool>(el, "allow_client_commands", true);
-              named_cert_p->allow_sleep = el.contains("allow_sleep") && el["allow_sleep"].is_boolean() && el["allow_sleep"].get<bool>();
+              // The Apollo fork stored its sleep grant as the permission bit 0x00400000, which the
+              // mask above drops. Carry the grant over once; the next save writes allow_sleep.
+              constexpr uint32_t apollo_fork_sleep_perm = 0x00400000;
+              named_cert_p->allow_sleep = el.contains("allow_sleep") ?
+                                            el["allow_sleep"].is_boolean() && el["allow_sleep"].get<bool>() :
+                                            !!(util::get_non_string_json_value<uint32_t>(el, "perm", 0) & apollo_fork_sleep_perm);
               named_cert_p->always_use_virtual_display = util::get_non_string_json_value<bool>(el, "always_use_virtual_display", false);
               named_cert_p->requested_resolution_only = util::get_non_string_json_value<bool>(el, "requested_resolution_only", false);
               named_cert_p->prefer_10bit_sdr =
@@ -4006,6 +4011,94 @@ namespace nvhttp {
     } catch (const std::exception &e) {
       BOOST_LOG(debug) << "Wallpaper failed: "sv << e.what();
       respond_not_found(response);
+    }
+  }
+
+  /**
+   * @brief Answer POST /moonlight/sleep in the GameStream XML shape that Selene reads.
+   * @param status 202 for an accepted request, which Selene reads as status 200 with `sleep` 1.
+   * @return true once an accepted response is flushed, so the caller may suspend.
+   */
+  bool write_moonlight_sleep(resp_https_t response, int status, std::string message) {
+    // Selene matches these three messages to explain the refusal.
+    if (status == 403) {
+      message = "Permission denied";
+    } else if (status == 409) {
+      message = "A session is running";
+    } else if (status == 501) {
+      message = "Sleep is not supported on this host";
+    }
+
+    pt::ptree tree;
+    if (status == 202) {
+      tree.put("root.<xmlattr>.status_code", 200);
+      tree.put("root.sleep", 1);
+    } else {
+      tree.put("root.<xmlattr>.status_code", status);
+      tree.put("root.<xmlattr>.status_message", message);
+    }
+    std::ostringstream data;
+    pt::write_xml(data, tree);
+    const auto body = data.str();
+
+    SimpleWeb::CaseInsensitiveMultimap headers {
+      {"Content-Type", "application/xml"},
+      {"Cache-Control", "no-store"},
+      {"Connection", "close"},
+      {"Content-Length", std::to_string(body.size())},
+    };
+    response->close_connection_after_response = true;
+    response->write(SimpleWeb::StatusCode::success_ok, body, headers);
+    if (status != 202) {
+      return true;
+    }
+
+    // As in power_action::write_response: never suspend before the client has the answer.
+    auto sent = std::make_shared<std::promise<bool>>();
+    auto finished = sent->get_future();
+    response->send([sent](const SimpleWeb::error_code &error) {
+      sent->set_value(!error);
+    });
+    return finished.wait_for(std::chrono::seconds(2)) == std::future_status::ready && finished.get();
+  }
+
+  /**
+   * @brief POST /moonlight/sleep: Selene's one-step sleep, served by the paired power action service.
+   *
+   * The client's "Allow sleep" setting is the permission. Only a stream blocks sleep: an app left
+   * running after its stream ended does not, as in the Apollo fork, because Selene offers Sleep
+   * beside an app it can resume.
+   */
+  void post_moonlight_sleep(resp_https_t response, req_https_t request) {
+    print_req<SunshineHTTPS>(request);
+
+    auto hooks = power_action_hooks(response, request);
+    hooks.activity = [activity = hooks.activity] {
+      auto value = activity();
+      value.app = false;
+      return value;
+    };
+    hooks.respond = [response](const power_action::response_t &value) {
+      return write_moonlight_sleep(response, value.status, value.message);
+    };
+
+    // Mint the confirmation token that the two-step /power-actions/v1 protocol hands to the
+    // client, and spend it at once. The service still checks every condition again under its lock.
+    const auto capabilities = paired_power_actions.capabilities(hooks);
+    if (capabilities.token.empty()) {
+      const int status = capabilities.status != 200 ? capabilities.status :
+                         !capabilities.supported    ? 501 :
+                         !capabilities.allowed      ? 403 :
+                                                      409;
+      write_moonlight_sleep(response, status, capabilities.message);
+      return;
+    }
+
+    const auto result = paired_power_actions.sleep(power_action::request_t {"POST", capabilities.token, true}, hooks);
+    if (result == power_action::result_e::response_failed) {
+      BOOST_LOG(warning) << "Sleep request was not executed because its acceptance response could not be flushed.";
+    } else if (result == power_action::result_e::native_failed) {
+      BOOST_LOG(warning) << "Sleep request was accepted but native sleep failed or client authorization was revoked before invocation.";
     }
   }
 
@@ -7541,6 +7634,9 @@ launch_session->exact_target_hold.reset();
     };
     https_server.resource["^/power-actions/v1/sleep$"]["POST"] = [run_blocking_nvhttp](auto response, auto request) {
       run_blocking_nvhttp(response, "SleepAccepted", [response, request] { post_sleep(response, request); });
+    };
+    https_server.resource["^/moonlight/sleep$"]["POST"] = [run_blocking_nvhttp](auto response, auto request) {
+      run_blocking_nvhttp(response, "SleepAccepted", [response, request] { post_moonlight_sleep(response, request); });
     };
     https_server.resource["^/moonlight/steam$"]["GET"] = [&activity_route_pool, run_on_blocking_pool](auto response, auto request) {
       run_on_blocking_pool(activity_route_pool, [response, request] { steamActivity(response, request); });
