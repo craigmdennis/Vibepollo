@@ -148,6 +148,11 @@ namespace stream {
   struct session_info_t {
     std::string uuid;
     std::string device_name;
+    // For GET /api/sessions (Apollo fork): the paired client, its address, and when the stream began.
+    std::string client_uuid;
+    std::string peer;
+    bool virtual_display {false};
+    std::int64_t started_at_unix {0};
     int width;
     int height;
     int fps;

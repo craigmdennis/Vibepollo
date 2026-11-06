@@ -788,6 +788,9 @@ sunshine_register_component(NAME test_component_steam_sync TEST_SOURCE test_stea
     LINK_LIBRARIES nlohmann_json::nlohmann_json ${STEAM_DISCOVERY_TEST_LIBRARIES})
 sunshine_register_component(NAME test_component_steam_process_tracker TEST_SOURCE test_steam_process_tracker.cpp
     PRODUCT_SOURCES "${SUNSHINE_TEST_REPOSITORY_ROOT}/src/steam_process_tracker.cpp")
+# GET /api/sessions response for home automation (fork addition).
+sunshine_register_component(NAME test_component_sessions_api TEST_SOURCE unit/test_sessions_api.cpp
+    LINK_LIBRARIES nlohmann_json::nlohmann_json)
 # Steam activity for the Apple TV client (fork addition).
 sunshine_register_component(NAME test_component_steam_activity TEST_SOURCE unit/test_steam_activity.cpp
     PRODUCT_SOURCES "${SUNSHINE_TEST_REPOSITORY_ROOT}/src/steam_activity.cpp"

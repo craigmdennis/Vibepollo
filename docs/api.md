@@ -63,6 +63,52 @@ See below for details on token endpoints and usage examples.
 ## GET /api/clients/list
 @copydoc confighttp::getClients()
 
+## GET /api/sessions
+
+Lists the paired clients that are streaming now. Home automation polls it to tell whether a client is online, because Moonlight clients hold no connection while idle. A stream counts while it starts or runs; a stream that has begun to stop no longer counts. `GET /api/metadata` carries `streaming` and `session_count` as well.
+
+A token scoped to `{"path": "/api/sessions", "methods": ["GET"]}` can read this route and no other.
+
+```bash
+curl -sk -H "Authorization: Bearer $TOKEN" https://localhost:47990/api/sessions
+```
+
+While one client streams:
+
+```json
+{
+  "status": true,
+  "version": 1,
+  "streaming": true,
+  "session_count": 1,
+  "sessions": [
+    {
+      "client": { "uuid": "0F8E3D1C-1111-2222-3333-444455556666", "name": "Apple TV" },
+      "app": { "id": 3, "name": "Steam" },
+      "state": "running",
+      "started_at": "2026-11-06T18:22:31Z",
+      "peer": "192.168.1.42",
+      "display": { "virtual": true, "width": 3840, "height": 2160, "fps": 60, "hdr": true }
+    }
+  ]
+}
+```
+
+While nothing streams:
+
+```json
+{ "status": true, "version": 1, "streaming": false, "session_count": 0, "sessions": [] }
+```
+
+| Field | Meaning |
+|---|---|
+| `client.uuid`, `client.name` | The paired client, as on the Clients page |
+| `app` | The running app, or `null` when none runs |
+| `state` | `starting` or `running` |
+| `started_at` | When the stream began, in UTC |
+| `peer` | The client's address. Empty until the stream runs. |
+| `display.virtual` | Whether the stream uses a virtual display |
+
 ## POST /api/clients/unpair
 @copydoc confighttp::unpair()
 

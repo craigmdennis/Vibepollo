@@ -656,6 +656,7 @@ namespace stream {
     std::string monitor_profile_uuid;
     bool input_only {};
     bool audio_disabled {};
+    bool virtual_display {};  // Reported by GET /api/sessions
     std::atomic_bool client_disconnected {false};
 
     safe::mail_t mail;
@@ -972,6 +973,16 @@ namespace stream {
       info.yuv444 = session->config.monitor.chromaSamplingType != 0;
       info.audio_channels = session->audio_disabled ? 0 : session->config.audio.channels;
       info.state = state_name(session->state.load(std::memory_order_relaxed));
+      info.client_uuid = session->device_uuid;
+      info.virtual_display = session->virtual_display;
+      // start() sets the peer address before the session reaches RUNNING.
+      if (session->state.load(std::memory_order_acquire) == session::state_e::RUNNING) {
+        info.peer = session->control.expected_peer_address;
+      }
+      info.started_at_unix = std::chrono::duration_cast<std::chrono::seconds>(
+                               (std::chrono::system_clock::now() - (now - session->stats.start_time)).time_since_epoch()
+      )
+                               .count();
 
       // Real-time performance counters
       info.frames_sent = session->stats.frames_sent.load(std::memory_order_relaxed);
@@ -4474,6 +4485,7 @@ namespace stream {
       session->audio_context_guard = std::move(launch_session.audio_context_guard);
       session->device_name = launch_session.device_name;
       session->device_uuid = !launch_session.client_uuid.empty() ? launch_session.client_uuid : launch_session.unique_id;
+      session->virtual_display = launch_session.virtual_display;
       // Fresh history identifier per stream so each start/stop cycle produces
       // a distinct row in the session_history database.
       session->history_uuid = uuid_util::uuid_t::generate().string();

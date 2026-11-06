@@ -66,6 +66,7 @@
 #include "logging.h"
 #include "log_export.h"
 #include "mic.h"
+#include "sessions_api.h"
 #include "network.h"
 #include "nvhttp.h"
 #include "remote_display_topology.h"
@@ -3260,6 +3261,45 @@ namespace confighttp {
   }
 
   /**
+   * @brief The GET /api/sessions body (Apollo fork): the paired clients that are streaming now.
+   */
+  nlohmann::json current_sessions_json() {
+    std::vector<sessions_api::session_t> sessions;
+    for (const auto &info : stream::get_all_session_info()) {
+      sessions.push_back({
+        .client_uuid = info.client_uuid,
+        .client_name = info.device_name,
+        .state = info.state,
+        .peer = info.peer,
+        .started_at_unix = info.started_at_unix,
+        .virtual_display = info.virtual_display,
+        .width = info.width,
+        .height = info.height,
+        .fps = info.fps,
+        .hdr = info.hdr,
+      });
+    }
+    std::optional<sessions_api::app_t> app;
+    if (const int id = proc::proc.current_app_id(); id > 0) {
+      app = sessions_api::app_t {id, proc::proc.get_last_run_app_name()};
+    }
+    return sessions_api::to_json(sessions, app);
+  }
+
+  /**
+   * @brief GET /api/sessions: which paired clients are streaming now, for home automation.
+   *
+   * A token scoped to GET /api/sessions can read it. The contract is in docs/api.md.
+   */
+  void getSessions(resp_https_t response, req_https_t request) {
+    if (!authenticate(response, request)) {
+      return;
+    }
+    print_req(request);
+    send_response(response, current_sessions_json(), "no-store");
+  }
+
+  /**
    * @brief Get immutables metadata about the server.
    * @param response The HTTP response object.
    * @param request The HTTP request object.
@@ -3276,6 +3316,12 @@ namespace confighttp {
     nlohmann::json output_tree;
     output_tree["status"] = true;
     output_tree["platform"] = SUNSHINE_PLATFORM;
+    // For home automation (Apollo fork). GET /api/sessions has the per-client detail.
+    {
+      const auto sessions = current_sessions_json();
+      output_tree["streaming"] = sessions["streaming"];
+      output_tree["session_count"] = sessions["session_count"];
+    }
 #if defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
     output_tree["architecture"] = "aarch64";
 #elif defined(__x86_64__) || defined(_M_X64)
@@ -6845,6 +6891,7 @@ namespace confighttp {
     server.resource["^/api/mic/session$"]["DELETE"] = micSessionEnd;
     register_api_route("^/api/apps/close$", "POST", closeApp);
     register_api_route("^/api/session/status$", "GET", getSessionStatus);
+    register_api_route("^/api/sessions$", "GET", getSessions);
     register_api_route("^/api/host/stats$", "GET", getHostStats);
     register_api_route("^/api/host/info$", "GET", getHostInfo);
     register_api_route("^/api/rtsp/sessions$", "GET", listRTSPSessions);

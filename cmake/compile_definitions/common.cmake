@@ -123,6 +123,7 @@ set(SUNSHINE_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/http_policy.cpp"
         "${CMAKE_SOURCE_DIR}/src/httpcommon.h"
         "${CMAKE_SOURCE_DIR}/src/confighttp.cpp"
+        "${CMAKE_SOURCE_DIR}/src/sessions_api.h"
         "${CMAKE_SOURCE_DIR}/src/config_http_policy.cpp"
         "${CMAKE_SOURCE_DIR}/src/confighttp_playnite.cpp"
         "${CMAKE_SOURCE_DIR}/src/confighttp_steam.cpp"
