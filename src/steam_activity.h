@@ -80,6 +80,11 @@ namespace steam_activity {
   constexpr uintmax_t max_art_bytes = 8ULL << 20;
   constexpr uintmax_t max_wallpaper_bytes = 20ULL << 20;
 
+  /**
+   * @brief Read a regular file of at most `max_bytes`. The limit applies to the bytes actually read.
+   */
+  std::optional<std::string> read_limited(const std::filesystem::path &file, uintmax_t max_bytes);
+
   /** @brief An image held in memory, with its media type. */
   struct image_t {
     std::string type;
@@ -115,9 +120,9 @@ namespace steam_activity {
 
   // Windows-backed lookups. On other platforms they report that nothing is installed.
   //
-  // Like Vibepollo's Steam library, these read Steam's files as the host process. The signed-in
-  // console user's registry values (the running app) come from HKEY_USERS by that user's SID, and
-  // the wallpaper is only Windows' TranscodedWallpaper copy in that user's profile.
+  // Like Vibepollo's Steam library, every read of a path the user can influence (Steam's folders, the
+  // wallpaper) happens inside its discovery scope, under the signed-in console user's access checks.
+  // While nobody is signed in, nothing is read.
 
   /** @brief First Steam folder that Vibepollo's Steam library finds, or nothing when Steam is not installed. */
   std::optional<std::filesystem::path> locate_root();
@@ -128,7 +133,7 @@ namespace steam_activity {
    */
   nlohmann::json current_activity();
 
-  /** @brief Art for an app from Steam's library cache. Nothing when no file matches. */
+  /** @brief Art for an app from Steam's library cache. Nothing when no user is signed in or no file matches. */
   std::optional<image_t> current_art(uint32_t app_id, art_kind kind);
 
   /** @brief Wallpaper of the signed-in console user. Nothing when no user is signed in. */
