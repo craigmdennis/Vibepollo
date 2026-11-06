@@ -788,6 +788,20 @@ sunshine_register_component(NAME test_component_steam_sync TEST_SOURCE test_stea
     LINK_LIBRARIES nlohmann_json::nlohmann_json ${STEAM_DISCOVERY_TEST_LIBRARIES})
 sunshine_register_component(NAME test_component_steam_process_tracker TEST_SOURCE test_steam_process_tracker.cpp
     PRODUCT_SOURCES "${SUNSHINE_TEST_REPOSITORY_ROOT}/src/steam_process_tracker.cpp")
+# Calliope remote microphone (fork addition). The playout unit decodes Opus.
+if(TARGET Opus::opus)
+    sunshine_register_component(NAME test_component_mic TEST_SOURCE unit/test_mic_protocol.cpp
+        EXTRA_TEST_SOURCES unit/test_mic_jitter.cpp unit/test_mic_pairing.cpp unit/test_mic_playout.cpp unit/test_mic_store.cpp
+        PRODUCT_SOURCES "${SUNSHINE_TEST_REPOSITORY_ROOT}/src/crypto.cpp"
+                        "${SUNSHINE_TEST_REPOSITORY_ROOT}/src/mic_protocol.cpp"
+                        "${SUNSHINE_TEST_REPOSITORY_ROOT}/src/mic_jitter.cpp"
+                        "${SUNSHINE_TEST_REPOSITORY_ROOT}/src/mic_store.cpp"
+                        "${SUNSHINE_TEST_REPOSITORY_ROOT}/src/mic_pairing.cpp"
+                        "${SUNSHINE_TEST_REPOSITORY_ROOT}/src/mic_playout.cpp"
+        DEFINITIONS "SUNSHINE_SOURCE_DIR=\"${SUNSHINE_TEST_REPOSITORY_ROOT}\""
+        LINK_LIBRARIES nlohmann_json::nlohmann_json OpenSSL::SSL OpenSSL::Crypto Opus::opus
+                       $<$<PLATFORM_ID:Windows>:advapi32> $<$<PLATFORM_ID:Windows>:shell32>)
+endif()
 sunshine_register_component(NAME test_component_steam_auto_sync TEST_SOURCE test_steam_auto_sync.cpp
     PRODUCT_SOURCES "${SUNSHINE_TEST_REPOSITORY_ROOT}/src/steam_auto_sync_policy.cpp"
                     "${SUNSHINE_TEST_REPOSITORY_ROOT}/src/steam_integration.cpp"
