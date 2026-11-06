@@ -7,6 +7,7 @@
 
 // standard includes
 #include <chrono>
+#include <cstddef>
 #include <functional>
 #include <cstdint>
 #include <list>
@@ -58,6 +59,10 @@ namespace nvhttp {
    * @brief The HTTPS port, as a difference from the config port.
    */
   constexpr auto PORT_HTTPS = -5;
+
+  // Largest request body the GameStream servers buffer. Pairing, serverinfo, and clipboard
+  // text are small, and the Simple-Web-Server default is SIZE_MAX.
+  constexpr std::size_t MAX_REQUEST_STREAMBUF_SIZE = 1 * 1024 * 1024;
 
   constexpr auto OTP_EXPIRE_DURATION = 180s;
 
