@@ -2208,6 +2208,7 @@
     "clipboard_set": "Set clipboard",
     "clipboard_read": "Read clipboard",
     "server_cmd": "Run server commands",
+    "share_activity": "Share game activity",
     "input_controller": "Controller input",
     "input_touch": "Touch input",
     "input_pen": "Pen input",
