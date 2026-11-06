@@ -205,15 +205,13 @@ namespace steam_activity {
     return {};
   }
 
-  namespace {
-    std::optional<std::string> read_limited(const fs::path &file, uintmax_t max_bytes) {
-      std::error_code ec;
-      if (!fs::is_regular_file(file, ec) || fs::file_size(file, ec) > max_bytes || ec) {
-        return std::nullopt;
-      }
-      return read_text(file, max_bytes);
+  std::optional<std::string> read_limited(const fs::path &file, uintmax_t max_bytes) {
+    std::error_code ec;
+    if (!fs::is_regular_file(file, ec) || fs::file_size(file, ec) > max_bytes || ec) {
+      return std::nullopt;
     }
-  }  // namespace
+    return read_text(file, max_bytes);
+  }
 
   std::optional<image_t> load_art(const fs::path &file) {
     auto type = media_type_for_extension(file);
