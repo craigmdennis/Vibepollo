@@ -17,12 +17,12 @@
 #include "logging.h"
 
 #ifdef _WIN32
-  // platform includes
-  #include <Windows.h>
-  #include <ShlObj.h>
-
-  // local includes
+  // misc.h includes Boost.Asio, which needs winsock2.h ahead of windows.h.
   #include "platform/windows/misc.h"
+
+  // platform includes
+  #include <ShlObj.h>
+  #include <Windows.h>
 #endif
 
 using namespace std::literals;

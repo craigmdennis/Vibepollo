@@ -17,6 +17,7 @@
 #include <vector>
 
 // platform includes
+#include <WinSock2.h>  // ahead of windows.h: misc.h includes Boost.Asio, as audio.cpp does
 #include <Audioclient.h>
 #include <mmdeviceapi.h>
 #include <newdev.h>
