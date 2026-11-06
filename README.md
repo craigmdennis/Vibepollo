@@ -2,7 +2,7 @@
 
 ## What this fork adds
 
-This fork, `craigmdennis/Vibepollo`, carries the additions of the `craigmdennis/Apollo` fork onto Vibepollo. It serves two clients without a client change: Selene, the Apple TV client, and Calliope, the microphone app for iPhone and Mac. Where Vibepollo already had a feature, the fork uses Vibepollo's version.
+This fork, `craigmdennis/Vibepollo`, carries the additions of the `craigmdennis/Apollo` fork onto Vibepollo release `2.0.6` (commit `5e6ed8594`). It serves two clients without a client change: Selene, the Apple TV client, and Calliope, the microphone app for iPhone and Mac. Where Vibepollo already had a feature, the fork uses Vibepollo's version.
 
 | Addition | Where |
 |---|---|
@@ -11,6 +11,7 @@ This fork, `craigmdennis/Vibepollo`, carries the additions of the `craigmdennis/
 | `activeclient` in HTTPS `serverinfo`: the device name of the running stream | `src/nvhttp.cpp` |
 | The **Share game activity** client permission (`0x00200000`) and the `share_game_activity` host setting | client permission lists, Settings |
 | `POST /moonlight/sleep` for Selene, answered by Vibepollo's power action service | `src/nvhttp.cpp` |
+| `GET /api/sessions`: which paired clients are streaming now, for home automation; `streaming` and `session_count` in `GET /api/metadata` | `src/sessions_api.h`, `src/confighttp.cpp` |
 | A request body cap of 1 MiB on the GameStream servers | `src/nvhttp.cpp` |
 | Update checks against this fork's releases | `cmake/prep/build_version.cmake` |
 | Windows build and install scripts | `scripts/build-windows.ps1`, `scripts/install-local.ps1` |
@@ -46,7 +47,7 @@ Audio arrives on UDP at the base port plus 13 (48002 by default). See [the micro
 
 ### Integration API
 
-The Apollo fork's read-only API key is replaced by Vibepollo's scoped API tokens. For a home automation integration, create a token scoped to `GET /api/clients/list` and `GET /api/mic/list`. Both lists report which client or microphone is connected.
+`GET /api/sessions` reports which paired clients are streaming now, with the app, the client's address, and the display mode. Home automation polls it. Vibepollo's scoped API tokens replace the Apollo fork's read-only API key: create a token scoped to `GET /api/sessions`, and add `GET /api/mic/list` to see whether a Calliope microphone is connected. See [the API reference](docs/api.md).
 
 ### Build and install on Windows
 
