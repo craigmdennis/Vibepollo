@@ -26,6 +26,7 @@
 #include "host_stats.h"
 #include "httpcommon.h"
 #include "logging.h"
+#include "mic.h"
 #include "main.h"
 #include "nvhttp.h"
 #include "pairing_recovery.h"
@@ -1017,6 +1018,11 @@ int main(int argc, char *argv[]) {
   }
 #endif
 
+  // Calliope remote microphone. Inert until a microphone is paired. Started before the config
+  // server so that no mic route runs against an unloaded store; the guard covers early returns.
+  mic::start();
+  auto mic_stop_guard = util::fail_guard(mic::stop);
+
   std::thread configThread {confighttp::start};
 
   // Produce the capability cache before discovery can advertise the service
@@ -1070,6 +1076,7 @@ int main(int argc, char *argv[]) {
   // Wait for shutdown
   shutdown_phase_state.set(shutdown_phase::phase_e::waiting_for_shutdown_event);
   shutdown_event->view();
+  mic::stop();
 #ifdef __linux__
   if (supervised_machine_host) {
     shutdown_phase_state.set(shutdown_phase::phase_e::linux_private_display_preserve);

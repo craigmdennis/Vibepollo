@@ -88,6 +88,20 @@ namespace system_tray {
   void update_tray_paired(std::string device_name);
 
   void update_tray_client_connected(std::string client_name);
+
+  /**
+   * @brief Notify a Calliope remote microphone pairing request. Clicking it opens the client page.
+   */
+  void update_tray_mic_pair_request();
+
+  void update_tray_mic_connected(std::string device_name);
+
+  /**
+   * @param reason Empty, or a short reason such as "connection lost".
+   */
+  void update_tray_mic_disconnected(std::string device_name, std::string reason);
+
+  void update_tray_mic_error(std::string message);
   /**
    * @brief Spawns a notification when ViGEm is missing.
    * Clicking it opens the Web UI Dashboard for more information.
