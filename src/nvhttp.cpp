@@ -73,6 +73,7 @@
 #include "pyrowave_protocol.h"
 #include "pyrowave_udp_probe.h"
 #include "state_storage.h"
+#include "steam_activity.h"
 #include "paired_state_policy.h"
 #include "state_storage_policy.h"
 #include "update.h"
@@ -3920,6 +3921,94 @@ namespace nvhttp {
     }
 
 
+  // Routes for the Selene Apple TV client. Selene ships through App Store review,
+  // so these paths and response shapes stay as the Apollo fork defined them.
+
+  /**
+   * @brief Whether a client may read game activity: the host switch is on and the client holds the permission.
+   */
+  bool may_see_activity(const verified_client_t &verified_client) {
+    return config::sunshine.share_game_activity && has_client_perm(verified_client, PERM::share_activity);
+  }
+
+  void write_image(resp_https_t response, const steam_activity::image_t &image, const char *cache_control) {
+    SimpleWeb::CaseInsensitiveMultimap headers;
+    headers.emplace("Content-Type", image.type);
+    headers.emplace("Cache-Control", cache_control);
+    headers.emplace("X-Content-Type-Options", "nosniff");
+    response->write(SimpleWeb::StatusCode::success_ok, image.data, headers);
+    response->close_connection_after_response = true;
+  }
+
+  void respond_not_found(resp_https_t response) {
+    response->write(SimpleWeb::StatusCode::client_error_not_found);
+    response->close_connection_after_response = true;
+  }
+
+  /**
+   * @brief GET /moonlight/steam: the last Steam game played on this host.
+   */
+  void steamActivity(resp_https_t response, req_https_t request) {
+    print_req<SunshineHTTPS>(request);
+
+    nlohmann::json body;
+    try {
+      body = may_see_activity(get_verified_cert(request)) ? steam_activity::current_activity() : steam_activity::json_withheld();
+    } catch (const std::exception &e) {
+      BOOST_LOG(debug) << "Steam activity failed: "sv << e.what();
+      body = steam_activity::json_no_steam();
+    }
+
+    SimpleWeb::CaseInsensitiveMultimap headers;
+    headers.emplace("Content-Type", "application/json");
+    response->write(SimpleWeb::StatusCode::success_ok, body.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace), headers);
+    response->close_connection_after_response = true;
+  }
+
+  /**
+   * @brief GET /moonlight/steam/art/{appId}/{kind}: hero, logo, or capsule art from Steam's library cache.
+   */
+  void steamArt(resp_https_t response, req_https_t request) {
+    print_req<SunshineHTTPS>(request);
+
+    try {
+      auto app_id = steam_activity::parse_app_id(request->path_match[1].str());
+      auto kind = steam_activity::parse_art_kind(request->path_match[2].str());
+      if (!may_see_activity(get_verified_cert(request)) || !app_id || !kind) {
+        return respond_not_found(response);
+      }
+      auto image = steam_activity::current_art(*app_id, *kind);
+      if (!image) {
+        return respond_not_found(response);
+      }
+      write_image(response, *image, "max-age=3600");
+    } catch (const std::exception &e) {
+      BOOST_LOG(debug) << "Steam art failed: "sv << e.what();
+      respond_not_found(response);
+    }
+  }
+
+  /**
+   * @brief GET /moonlight/wallpaper: the signed-in user's desktop wallpaper.
+   */
+  void wallpaper(resp_https_t response, req_https_t request) {
+    print_req<SunshineHTTPS>(request);
+
+    try {
+      if (!may_see_activity(get_verified_cert(request))) {
+        return respond_not_found(response);
+      }
+      auto image = steam_activity::current_wallpaper();
+      if (!image) {
+        return respond_not_found(response);
+      }
+      write_image(response, *image, "no-cache");
+    } catch (const std::exception &e) {
+      BOOST_LOG(debug) << "Wallpaper failed: "sv << e.what();
+      respond_not_found(response);
+    }
+  }
+
     template<class T>
     void not_found(std::shared_ptr<typename SimpleWeb::ServerBase<T>::Response> response, std::shared_ptr<typename SimpleWeb::ServerBase<T>::Request> request) {
       print_req<T>(request);
@@ -4429,6 +4518,18 @@ namespace nvhttp {
         tree.put("root.currentgame", expose_active_game ? current_appid : 0);
         tree.put("root.currentgameuuid", expose_active_game ? proc::proc.get_running_app_uuid() : "");
         tree.put("root.state", expose_active_game ? "SUNSHINE_SERVER_BUSY" : "SUNSHINE_SERVER_FREE");
+
+        // Name of the device that is streaming, for Selene. Only clients allowed to see game activity receive it.
+        std::string active_client;
+        if (current_appid > 0 && may_see_activity(verified_client)) {
+          for (const auto &session : stream::get_all_session_info()) {
+            if (!session.device_name.empty()) {
+              active_client = session.device_name;
+              break;
+            }
+          }
+        }
+        tree.put("root.activeclient", active_client);
       } else {
         tree.put("root.currentgame", 0);
         tree.put("root.currentgameuuid", "");
@@ -7243,6 +7344,10 @@ launch_session->exact_target_hold.reset();
     // work, and on a single FIFO worker that made the host undiscoverable until restart.
     thread_pool_util::ThreadPool discovery_route_pool;
     discovery_route_pool.start(1);
+    // Selene's Steam activity, art, and wallpaper reads open user files. Keep them off the
+    // discovery worker so a slow read never delays serverinfo.
+    thread_pool_util::ThreadPool activity_route_pool;
+    activity_route_pool.start(1);
     hardware_metrics::service_t metrics_service {[] {
       return platf::create_host_stats_provider();
     }};
@@ -7436,6 +7541,15 @@ launch_session->exact_target_hold.reset();
     };
     https_server.resource["^/power-actions/v1/sleep$"]["POST"] = [run_blocking_nvhttp](auto response, auto request) {
       run_blocking_nvhttp(response, "SleepAccepted", [response, request] { post_sleep(response, request); });
+    };
+    https_server.resource["^/moonlight/steam$"]["GET"] = [&activity_route_pool, run_on_blocking_pool](auto response, auto request) {
+      run_on_blocking_pool(activity_route_pool, [response, request] { steamActivity(response, request); });
+    };
+    https_server.resource["^/moonlight/steam/art/([0-9]{1,10})/(hero|logo|capsule)$"]["GET"] = [&activity_route_pool, run_on_blocking_pool](auto response, auto request) {
+      run_on_blocking_pool(activity_route_pool, [response, request] { steamArt(response, request); });
+    };
+    https_server.resource["^/moonlight/wallpaper$"]["GET"] = [&activity_route_pool, run_on_blocking_pool](auto response, auto request) {
+      run_on_blocking_pool(activity_route_pool, [response, request] { wallpaper(response, request); });
     };
     https_server.resource["^/pair/?$"]["GET"] = pair<SunshineHTTPS>;
     https_server.resource["^/pair/?$"]["POST"] = pair<SunshineHTTPS>;
@@ -7675,6 +7789,8 @@ launch_session->exact_target_hold.reset();
     blocking_route_pool.join();
     discovery_route_pool.stop();
     discovery_route_pool.join();
+    activity_route_pool.stop();
+    activity_route_pool.join();
     metrics_route_pool.stop();
     metrics_route_pool.join();
     webrtc_stream::shutdown_all_sessions();

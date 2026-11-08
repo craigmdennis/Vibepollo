@@ -2413,6 +2413,7 @@ namespace config {
       }
     }
 
+    bool_f(vars, "share_game_activity", sunshine.share_game_activity);
     bool_f(vars, "hardware_metrics", sunshine.hardware_metrics);
     int_between_f(vars, "hardware_metrics_interval", sunshine.hardware_metrics_interval, {500, 10000});
     bool_f(vars, "realtime_stats_enabled", sunshine.realtime_stats_enabled);

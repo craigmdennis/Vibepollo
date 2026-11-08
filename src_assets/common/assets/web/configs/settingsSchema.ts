@@ -1129,6 +1129,7 @@ export const settingsCategories: SettingsCategory[] = [
             step: 100,
             visibleWhen: { key: 'hardware_metrics', equals: true },
           }),
+          boolean('share_game_activity'),
           boolean('realtime_stats_enabled'),
           number('realtime_stats_poll_interval_ms', {
             min: 250,
@@ -1285,6 +1286,7 @@ export const settingsDefaults: Record<string, unknown> = {
   session_history_db_size_limit_mb: 0,
   hardware_metrics: false,
   hardware_metrics_interval: 1000,
+  share_game_activity: true,
   realtime_stats_enabled: true,
   realtime_stats_poll_interval_ms: 2000,
 };
