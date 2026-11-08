@@ -5135,6 +5135,11 @@ default, matching the Playnite picker. Vibepollo also reads Steam's local user
 play-history and `appinfo.vdf` caches to rank installed games for recent-game
 synchronization without requiring a Steam Web API key or a public profile.
 
+Each synchronized Steam entry stores Steam's last-played time in `apps.json` as
+`last-played` (Unix seconds). Paired clients receive it as a `LastPlayed`
+element on that app in `/applist`; the element is omitted when the game has
+never been played. The app list order and names are unchanged.
+
 ## Lutris Integration
 
 ### lutris_enabled
