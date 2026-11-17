@@ -738,6 +738,9 @@ namespace stream {
       std::array<std::atomic_bool, platf::MAX_GAMEPADS> pcm_send_success_logged {};
       std::array<std::atomic_bool, platf::MAX_GAMEPADS> pcm_send_failure_logged {};
       std::array<std::atomic_bool, platf::MAX_GAMEPADS> vigem_rumble_send_success_logged {};
+      // Last game rumble sent per client-relative controller, used to restore it after a
+      // host-generated indicator pulse.
+      std::array<std::pair<std::uint16_t, std::uint16_t>, platf::MAX_GAMEPADS> last_game_rumble {};
       std::array<std::atomic_bool, platf::MAX_GAMEPADS> vigem_rumble_send_failure_logged {};
       safe::mail_raw_t::event_t<video::hdr_info_t> hdr_queue;
     } control;
@@ -1427,6 +1430,16 @@ namespace stream {
       plaintext.header.payloadLength = sizeof(plaintext) - sizeof(control_header_v2);
 
       auto &data = msg.data.rumble;
+      if (msg.id < session->control.last_game_rumble.size()) {
+        auto &last = session->control.last_game_rumble[msg.id];
+        using role_e = platf::gamepad_feedback_msg_t::rumble_role_e;
+        if (msg.rumble_role == role_e::restore) {
+          data.lowfreq = last.first;
+          data.highfreq = last.second;
+        } else if (msg.rumble_role == role_e::game) {
+          last = {data.lowfreq, data.highfreq};
+        }
+      }
 
       plaintext.useless = 0xC0FFEE;
       plaintext.id = util::endian::little(msg.id);

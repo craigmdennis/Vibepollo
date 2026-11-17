@@ -166,6 +166,8 @@ namespace input {
 
     platf::gamepad_state_t gamepad_state;
     bool guide_key_down = false;
+    // Guide held by the Back/Select timeout until the physical Back button is released.
+    bool back_guide_down = false;
 
     thread_pool_util::ThreadPool::task_id_t back_timeout_id;
 
@@ -193,7 +195,7 @@ namespace input {
   // Controller packets and timer releases must not release a held bound key.
   void send_gamepad_state(const gamepad_t &gamepad) {
     auto state = gamepad.gamepad_state;
-    if (gamepad.guide_key_down) {
+    if (gamepad.guide_key_down || gamepad.back_guide_down) {
       state.buttonFlags |= platf::HOME;
     }
     platf::gamepad_update(platf_input, gamepad.id, state);
@@ -214,6 +216,7 @@ namespace input {
     gamepad.pending_steam_attributes.reset();
     gamepad.gamepad_state = {};
     gamepad.guide_key_down = false;
+    gamepad.back_guide_down = false;
     gamepad.back_button_state = button_state_e::NONE;
   }
 
@@ -1706,6 +1709,8 @@ namespace input {
       case button_state_e::UP:
         if (!(platf::BACK & bf_new)) {
           gamepad.back_button_state = button_state_e::NONE;
+          // Physical Back released: release the Guide button the timeout pressed.
+          gamepad.back_guide_down = false;
         }
         gamepad_state.buttonFlags &= ~platf::BACK;
         break;
@@ -1736,16 +1741,37 @@ namespace input {
             state.buttonFlags &= ~platf::BACK;
             send_gamepad_state(gamepad);
 
-            // Press Home button
-            state.buttonFlags |= platf::HOME;
-            send_gamepad_state(gamepad);
+            if (config::input.back_button_hold_guide) {
+              // Hold Guide until Back is released, so Steam's Guide-button chords work.
+              gamepad.back_guide_down = true;
+              send_gamepad_state(gamepad);
 
-            // Sleep for a short time to allow the input to be detected
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+              // Short rumble on the client's controller so the player knows Guide is now held.
+              // Both messages are ordered events, not rumble state: they never displace a pending
+              // game rumble, and the restore resends the game's last rumble once the pulse ends.
+              if (config::input.back_button_hold_guide_rumble && config::input.forward_rumble) {
+                using role_e = platf::gamepad_feedback_msg_t::rumble_role_e;
+                auto pulse = platf::gamepad_feedback_msg_t::make_rumble(controller, 0x8000, 0x8000);
+                pulse.rumble_role = role_e::indicator;
+                static_cast<void>(platf::raise_gamepad_feedback(*input->feedback_queue, pulse));
+                task_pool.pushDelayed([input, controller]() {
+                  auto restore = platf::gamepad_feedback_msg_t::make_rumble(controller, 0, 0);
+                  restore.rumble_role = platf::gamepad_feedback_msg_t::rumble_role_e::restore;
+                  static_cast<void>(platf::raise_gamepad_feedback(*input->feedback_queue, restore));
+                }, 120ms);
+              }
+            } else {
+              // Press Home button
+              state.buttonFlags |= platf::HOME;
+              send_gamepad_state(gamepad);
 
-            // Release Home button
-            state.buttonFlags &= ~platf::HOME;
-            send_gamepad_state(gamepad);
+              // Sleep for a short time to allow the input to be detected
+              std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+              // Release Home button
+              state.buttonFlags &= ~platf::HOME;
+              send_gamepad_state(gamepad);
+            }
 
             gamepad.back_timeout_id = nullptr;
           };

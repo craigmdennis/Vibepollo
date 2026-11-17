@@ -41,7 +41,14 @@ namespace platf {
   };
   int alloc_result = 0, alloc_calls = 0;
   std::vector<gamepad_id_t> allocated_gamepads;
-  int alloc_gamepad(int, gamepad_id_t id, gamepad_arrival_t, int) {
+  struct gamepad_feedback_msg_t {
+    enum class rumble_role_e { game, indicator, restore } rumble_role {};
+    int id = 0;
+    static gamepad_feedback_msg_t make_rumble(int id, uint16_t, uint16_t) { return {{}, id}; }
+  };
+  std::vector<gamepad_feedback_msg_t> feedback_events;
+  bool raise_gamepad_feedback(int &, gamepad_feedback_msg_t msg) { feedback_events.push_back(msg); return true; }
+  int alloc_gamepad(int, gamepad_id_t id, gamepad_arrival_t, const std::shared_ptr<int> &) {
     ++alloc_calls;
     if (alloc_result == 0) {
       allocated_gamepads.push_back(id);
@@ -509,6 +516,17 @@ int main(int argc, char **argv) {
       assert(platf::gamepad_events[first].second.buttonFlags == 0);
       assert(platf::gamepad_events[first + 1].second.buttonFlags == platf::HOME);
       assert(platf::gamepad_events[first + 2].second.buttonFlags == 0); expect({});
+    } else if (test == "guide_back_hold") {
+      // Back held past the timeout holds Guide until Back is released, with one indicator pulse then a restore.
+      using role_e = platf::gamepad_feedback_msg_t::rumble_role_e;
+      config::input.back_button_hold_guide = true;
+      connect(a, 0, 1, platf::BACK); task_pool.fire();
+      assert(state(a).buttonFlags == platf::HOME);
+      assert(platf::feedback_events.size() == 1 && platf::feedback_events[0].rumble_role == role_e::indicator);
+      task_pool.fire();
+      assert(platf::feedback_events.size() == 2 && platf::feedback_events[1].rumble_role == role_e::restore);
+      connect(a, 0, 1, platf::BACK | 0x1000); assert(state(a).buttonFlags == (platf::HOME | 0x1000));
+      connect(a, 0, 1); assert(state(a).buttonFlags == 0); expect({});
     } else if (test == "guide_disabled_press") {
       connect(a, 0, 1);
       for (bool keyboard_disabled : {false, true}) {
@@ -563,7 +581,7 @@ def main():
     parser.add_argument('--compiler', choices=('c++', 'msvc'), default='c++')
     args = parser.parse_args()
     source = args.source.read_text()
-    prelude = production_prelude(source).replace('std::list<int> input_queue;', 'std::list<std::vector<uint8_t>> input_queue;\n  std::atomic_bool input_queue_task_scheduled {false};\n  int feedback_queue = 0;\n  bool persist_gamepads = false;')
+    prelude = production_prelude(source).replace('std::list<int> input_queue;', 'std::list<std::vector<uint8_t>> input_queue;\n  std::atomic_bool input_queue_task_scheduled {false};\n  std::shared_ptr<int> feedback_queue = std::make_shared<int>();\n  bool persist_gamepads = false;')
     prelude = prelude.replace('void push(std::function<void()> f) { tasks.push_back(std::move(f)); }',
                               'template<class F, class... A> void push(F f, A... a) { tasks.push_back([=] { f(a...); }); }')
     prelude = prelude.replace('constexpr int KEY_UP_EVENT_MAGIC = 2;', 'constexpr int KEY_UP_EVENT_MAGIC = 0x04;')

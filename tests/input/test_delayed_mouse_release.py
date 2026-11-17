@@ -79,6 +79,7 @@ constexpr int MOUSE_BUTTON_UP_EVENT_MAGIC_GEN5 = 1;
 namespace config { struct {
   bool mouse = true, keyboard = true, controller = true;
   int guide_button_key = 0, guide_button_controller = 0;
+  bool back_button_hold_guide = false, back_button_hold_guide_rumble = true, forward_rumble = true;
   std::chrono::milliseconds key_repeat_delay {0}, key_repeat_period {10}, back_button_timeout {1000};
   std::unordered_map<short, short> keybindings;
 } input; }
@@ -127,6 +128,7 @@ struct gamepad_t {
   worker_t::task_id_t back_timeout_id = nullptr;
   platf::gamepad_state_t gamepad_state;
   bool guide_key_down = false;
+  bool back_guide_down = false;
   button_state_e back_button_state = button_state_e::NONE;
 };
 namespace util::endian {
@@ -194,7 +196,7 @@ def production_prelude(source):
         start = source.index('  struct queued_input_packet_t {')
         end = source.index('\n  struct input_t {', start)
         prelude = prelude.replace('struct input_t {', source[start:end] + '\nstruct input_t {')
-        prelude = prelude.replace('  std::list<int> input_queue;', '  std::list<queued_input_packet_t> input_queue;\n  std::atomic_uint64_t guide_permission_state {1};\n  std::atomic_bool input_queue_task_scheduled {false};\n  int feedback_queue = 0;\n  bool persist_gamepads = false;')
+        prelude = prelude.replace('  std::list<int> input_queue;', '  std::list<queued_input_packet_t> input_queue;\n  std::atomic_uint64_t guide_permission_state {1};\n  std::atomic_bool input_queue_task_scheduled {false};\n  std::shared_ptr<int> feedback_queue = std::make_shared<int>();\n  bool persist_gamepads = false;')
     for name in ('mouse_press', 'mouse_press_owner'):
         pattern = rf'(?:static )?std::array<[^;]+> {name} {{}};'
         declaration = re.search(pattern, source)
