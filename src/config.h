@@ -330,6 +330,8 @@ namespace config {
     int guide_button_key;
     int guide_button_controller;
     std::chrono::milliseconds back_button_timeout;
+    bool back_button_hold_guide;
+    bool back_button_hold_guide_rumble;
     std::chrono::milliseconds key_repeat_delay;
     std::chrono::duration<double> key_repeat_period;
 
