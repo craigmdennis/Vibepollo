@@ -52,7 +52,8 @@ namespace input {
   enum class button_state_e {
     NONE,  ///< No button state
     DOWN,  ///< Button is down
-    UP  ///< Button is up
+    UP,  ///< Button is up
+    DEFERRED  ///< Back press withheld until the hold-guide timeout decides tap or hold
   };
 
   template<std::size_t N>
@@ -168,6 +169,9 @@ namespace input {
     bool guide_key_down = false;
     // Guide held by the Back/Select timeout until the physical Back button is released.
     bool back_guide_down = false;
+    // Short Back tap replayed when a withheld (hold-guide) Back press is released early.
+    bool back_tap_down = false;
+    thread_pool_util::ThreadPool::task_id_t back_tap_id {};
 
     thread_pool_util::ThreadPool::task_id_t back_timeout_id;
 
@@ -198,6 +202,9 @@ namespace input {
     if (gamepad.guide_key_down || gamepad.back_guide_down) {
       state.buttonFlags |= platf::HOME;
     }
+    if (gamepad.back_tap_down) {
+      state.buttonFlags |= platf::BACK;
+    }
     platf::gamepad_update(platf_input, gamepad.id, state);
   }
 
@@ -206,6 +213,11 @@ namespace input {
       task_pool.cancel(gamepad.back_timeout_id);
       gamepad.back_timeout_id = nullptr;
     }
+    if (gamepad.back_tap_id) {
+      task_pool.cancel(gamepad.back_tap_id);
+      gamepad.back_tap_id = nullptr;
+    }
+    gamepad.back_tap_down = false;
     if (gamepad.id >= 0) {
       free_gamepad(platf_input, gamepad.id);
       gamepad.id = -1;
@@ -1641,7 +1653,7 @@ namespace input {
     // may never send another packet under its own controller number.
     for (std::size_t i = 0; i < input->gamepads.size(); ++i) {
       if (!(packet->activeGamepadMask & (1 << i)) &&
-          (input->gamepads[i].id >= 0 || input->gamepads[i].back_timeout_id || input->gamepads[i].alloc_failed ||
+          (input->gamepads[i].id >= 0 || input->gamepads[i].back_timeout_id || input->gamepads[i].back_tap_id || input->gamepads[i].alloc_failed ||
            input->gamepads[i].pending_steam_attributes)) {
         reset_gamepad(input->gamepads[i]);
         input->allocated_gamepads.fetch_and(~(1u << i), std::memory_order_relaxed);
@@ -1720,6 +1732,25 @@ namespace input {
         }
         gamepad_state.buttonFlags |= platf::BACK;
         break;
+      case button_state_e::DEFERRED:
+        if (platf::BACK & bf_new) {
+          gamepad_state.buttonFlags &= ~platf::BACK;
+        } else {
+          // Released before the timeout: it was a tap, so replay a short Back press to the game.
+          gamepad.back_button_state = button_state_e::NONE;
+          if (gamepad.back_timeout_id) {
+            task_pool.cancel(gamepad.back_timeout_id);
+            gamepad.back_timeout_id = nullptr;
+          }
+          gamepad.back_tap_down = true;
+          gamepad.back_tap_id = task_pool.pushDelayed([input, controller = packet->controllerNumber]() {
+            auto &gamepad = input->gamepads[controller];
+            gamepad.back_tap_down = false;
+            gamepad.back_tap_id = nullptr;
+            send_gamepad_state(gamepad);
+          }, 100ms).task_id;
+        }
+        break;
       case button_state_e::NONE:
         break;
     }
@@ -1731,6 +1762,19 @@ namespace input {
       if (platf::BACK & bf_new) {
         // Don't emulate home button if timeout < 0
         if (config::input.back_button_timeout >= 0ms) {
+          if (config::input.back_button_hold_guide) {
+            // Withhold Back from the game until the timeout decides: a hold becomes Guide and the
+            // game never sees Back; an early release replays a short Back tap.
+            if (gamepad.back_tap_id) {
+              // Finish a previous tap first so the game sees two presses, not one long one.
+              task_pool.cancel(gamepad.back_tap_id);
+              gamepad.back_tap_id = nullptr;
+              gamepad.back_tap_down = false;
+              send_gamepad_state(gamepad);
+            }
+            gamepad.back_button_state = button_state_e::DEFERRED;
+            gamepad_state.buttonFlags &= ~platf::BACK;
+          }
           auto f = [input, controller = packet->controllerNumber]() {
             auto &gamepad = input->gamepads[controller];
 
