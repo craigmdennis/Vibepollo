@@ -10,6 +10,7 @@
 
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -87,6 +88,8 @@ namespace proc {
     std::string playnite_id;
     // When true, launch Playnite in fullscreen mode via the helper.
     bool playnite_fullscreen;
+    // Unix seconds, written by the Steam sync.
+    std::int64_t last_played {0};
     bool frame_gen_limiter_fix;
     bool elevated;
     bool dualsense_haptics {false};

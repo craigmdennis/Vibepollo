@@ -1034,6 +1034,8 @@ namespace config {
     0,  // guide_button_key (disabled)
     0,  // guide_button_controller (first controller of the sending client)
     -1ms,  // back_button_timeout
+    false,  // back_button_hold_guide
+    true,  // back_button_hold_guide_rumble
     500ms,  // key_repeat_delay
     std::chrono::duration<double> {1 / 24.9},  // key_repeat_period
 
@@ -2252,6 +2254,8 @@ namespace config {
     if (to > std::numeric_limits<int>::min()) {
       input.back_button_timeout = std::chrono::milliseconds {to};
     }
+    bool_f(vars, "back_button_hold_guide", input.back_button_hold_guide);
+    bool_f(vars, "back_button_hold_guide_rumble", input.back_button_hold_guide_rumble);
 
     double repeat_frequency {0};
     double_between_f(vars, "key_repeat_frequency", repeat_frequency, {0, std::numeric_limits<double>::max()});
@@ -2748,6 +2752,8 @@ namespace config {
         "motion_as_ds4",
         "touchpad_as_ds4",
         "back_button_timeout",
+        "back_button_hold_guide",
+        "back_button_hold_guide_rumble",
         "guide_button_key",
         "guide_button_controller",
         "keyboard",

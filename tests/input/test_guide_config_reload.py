@@ -96,7 +96,7 @@ def main():
     prelude = production_prelude(source)
     prelude = '#include "src/utility.h"\n#include "src/config_key.h"\n#include <nlohmann/json.hpp>\n#include <set>\n#include <sstream>\nusing namespace std::literals;\n' + prelude
     prelude = re.sub(r'namespace util::endian \{.*?\n\}', '', prelude, flags=re.S)
-    prelude = prelude.replace('std::list<int> input_queue;', 'std::list<std::vector<uint8_t>> input_queue;\n  std::atomic_bool input_queue_task_scheduled {false};\n  int feedback_queue = 0;\n  bool persist_gamepads = false;')
+    prelude = prelude.replace('std::list<int> input_queue;', 'std::list<std::vector<uint8_t>> input_queue;\n  std::atomic_bool input_queue_task_scheduled {false};\n  std::shared_ptr<int> feedback_queue = std::make_shared<int>();\n  bool persist_gamepads = false;')
     extra = re.sub(r'namespace util \{.*?\n\}', '', packets.EXTRA, flags=re.S)
     config = (ROOT / 'src/config.cpp').read_text()
     parsers = config[config.index('  bool endline(char ch)'):config.index('  void string_f(')]

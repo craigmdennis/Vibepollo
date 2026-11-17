@@ -581,6 +581,23 @@ editing the `conf` file in a text editor. Use the examples as reference.
     </tr>
 </table>
 
+### back_button_hold_guide
+
+When enabled, the Home/Guide press emulated by `back_button_timeout` is held for as long
+as Back/Select stays held, and released when Back/Select is released, in place of a
+100 ms tap. This lets Steam's Guide Button Chord layout work from clients that cannot
+send a real Guide button (for example Moonlight on Apple TV): hold Back/Select past the
+timeout, then press the chord button. Has no effect unless `back_button_timeout >= 0`.
+Default: `disabled`.
+
+### back_button_hold_guide_rumble
+
+When `back_button_hold_guide` is enabled, send a short rumble to the client's controller
+at the moment the emulated Guide button starts being held, so the player knows a chord
+button can be pressed. After the pulse, the game's last rumble is resent so an ongoing game
+rumble resumes (Moonlight clients; WebRTC clients receive a plain stop). Ignored when
+`forward_rumble` is disabled. Default: `enabled`.
+
 ### guide_button_key
 
 The raw client keyboard virtual-key code to consume as a held Home/Guide button.
@@ -5134,6 +5151,11 @@ The manual application picker shows installed, importable Steam games by
 default, matching the Playnite picker. Vibepollo also reads Steam's local user
 play-history and `appinfo.vdf` caches to rank installed games for recent-game
 synchronization without requiring a Steam Web API key or a public profile.
+
+Each synchronized Steam entry stores Steam's last-played time in `apps.json` as
+`last-played` (Unix seconds). Paired clients receive it as a `LastPlayed`
+element on that app in `/applist`; the element is omitted when the game has
+never been played. The app list order and names are unchanged.
 
 ## Lutris Integration
 
