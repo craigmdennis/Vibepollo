@@ -207,6 +207,14 @@ namespace platf {
     std::uint16_t id;
     // Internal provenance for bounded host-side ViGEm send-result diagnostics.
     bool from_vigem {false};
+    // Host-generated rumble that must not replace the game's rumble state:
+    // `indicator` is a short pulse sent as-is, `restore` is replaced at send time
+    // by the last game rumble sent to this controller. Neither is coalesced.
+    enum class rumble_role_e : std::uint8_t {
+      game,
+      indicator,
+      restore,
+    } rumble_role {rumble_role_e::game};
     // Invalidated on detach/rebind/reset, including messages already popped.
     std::weak_ptr<controller_speaker_pcm::producer_epoch> speaker_epoch;
 
@@ -293,6 +301,10 @@ namespace platf {
     unsigned subkey = 0;
     switch (msg.type) {
       case gamepad_feedback_e::rumble:
+        // Indicator pulses and restores are ordered events, so they never drop a pending
+        // game rumble state and a pending game state never drops them.
+        if (msg.rumble_role != gamepad_feedback_msg_t::rumble_role_e::game) return 0;
+        break;
       case gamepad_feedback_e::rumble_triggers:
       case gamepad_feedback_e::set_rgb_led:
         break;

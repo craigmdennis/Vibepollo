@@ -4747,6 +4747,10 @@ namespace nvhttp {
           app_node.put("UUID", entry.uuid);
           app_node.put("IDX", entry.synthetic ? std::to_string(entry.id) : (configured == visible_apps.end() ? "" : (*configured)->idx));
           app_node.put("ID", entry.id);
+          // Unix seconds from the Steam sync. Clients that do not know the element ignore it.
+          if (configured != visible_apps.end() && (*configured)->last_played > 0) {
+            app_node.put("LastPlayed", (*configured)->last_played);
+          }
           if (entry.synthetic && remote_session::identify(entry.id, entry.uuid) == remote_session::control_e::running_game && current_app) {
             cached_running_game_tiles.remember(identity.uuid, entry.id, game.app);
           }

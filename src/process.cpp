@@ -4664,6 +4664,9 @@ namespace proc {
           if (app_node.contains("lutris-directory") && app_node["lutris-directory"].is_string()) {
             ctx.lutris_directory = parse_env_val(this_env, app_node["lutris-directory"].get<std::string>());
           }
+          if (app_node.contains("last-played") && app_node["last-played"].is_number_integer()) {
+            ctx.last_played = app_node["last-played"].get<std::int64_t>();
+          }
           if (app_node.contains("image-path")) {
             ctx.image_path = parse_env_val(this_env, app_node.value("image-path", ""));
           }
