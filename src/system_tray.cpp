@@ -626,6 +626,51 @@ namespace system_tray {
     });
   }
 
+  // Calliope remote microphone notices (Apollo fork).
+  static void mic_notification(const char *title, std::string text, void (*callback)()) {
+    run_on_tray_thread([title, text = std::move(text), callback]() {
+      tray.notification_title = nullptr;
+      tray.notification_text = nullptr;
+      tray.notification_cb = nullptr;
+      tray.notification_icon = nullptr;
+      tray.icon = TRAY_ICON;
+
+      static std::string s_mic_text;
+  #ifdef _WIN32
+      s_mic_text = utf8ToAcp(text);
+  #else
+      s_mic_text = text;
+  #endif
+      tray.notification_title = title;
+      tray.notification_text = s_mic_text.c_str();
+      tray.notification_icon = TRAY_ICON;
+      tray.notification_cb = callback;
+      tray.tooltip = PROJECT_NAME;
+      tray_update(&tray);
+    });
+  }
+
+  void update_tray_mic_pair_request() {
+    mic_notification("Incoming microphone pairing request", "Click here to enter the PIN from Calliope", []() {
+      launch_ui("/clients");
+    });
+  }
+
+  void update_tray_mic_connected(std::string device_name) {
+    mic_notification("Microphone connected", std::move(device_name), nullptr);
+  }
+
+  void update_tray_mic_disconnected(std::string device_name, std::string reason) {
+    if (!reason.empty()) {
+      device_name += " (" + reason + ")";
+    }
+    mic_notification("Microphone disconnected", std::move(device_name), nullptr);
+  }
+
+  void update_tray_mic_error(std::string message) {
+    mic_notification("Microphone error", std::move(message), nullptr);
+  }
+
   void update_tray_vigem_missing() {
     run_on_tray_thread([]() {
       tray.notification_title = nullptr;

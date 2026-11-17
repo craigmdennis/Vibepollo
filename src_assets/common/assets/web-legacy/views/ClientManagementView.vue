@@ -134,6 +134,9 @@
       </div>
     </n-card>
 
+    <!-- Calliope remote microphones (Apollo fork) -->
+    <MicrophonesCard />
+
     <!-- Existing Clients -->
     <n-card class="clients-card" :segmented="{ content: true, footer: false }">
       <template #header>
@@ -933,6 +936,7 @@ import {
   useMessage,
 } from 'naive-ui';
 import ApiTokenManager from '@/ApiTokenManager.vue';
+import MicrophonesCard from '@/components/MicrophonesCard.vue';
 import TrustedDevicesCard from '@/components/TrustedDevicesCard.vue';
 import AppEditConfigOverridesSection from '@/components/app-edit/AppEditConfigOverridesSection.vue';
 import { useAuthStore } from '@/stores/auth';
