@@ -587,7 +587,10 @@ When enabled, the Home/Guide press emulated by `back_button_timeout` is held for
 as Back/Select stays held, and released when Back/Select is released, in place of a
 100 ms tap. This lets Steam's Guide Button Chord layout work from clients that cannot
 send a real Guide button (for example Moonlight on Apple TV): hold Back/Select past the
-timeout, then press the chord button. Has no effect unless `back_button_timeout >= 0`.
+timeout, then press the chord button. While this is enabled, Back/Select is withheld from the
+game until the timeout decides: a press released before the timeout reaches the game as a
+short tap on release, and a held press reaches it only as Guide. Has no effect unless
+`back_button_timeout >= 0`.
 Default: `disabled`.
 
 ### back_button_hold_guide_rumble

@@ -118,7 +118,7 @@ namespace platf {
 }
 std::bitset<16> gamepadMask;
 void free_id(std::bitset<16> &mask, int id) { mask[id] = false; }
-enum class button_state_e { NONE, DOWN, UP };
+enum class button_state_e { NONE, DOWN, UP, DEFERRED };
 struct gamepad_t {
   int id = -1;
   bool alloc_failed = false;
@@ -129,6 +129,8 @@ struct gamepad_t {
   platf::gamepad_state_t gamepad_state;
   bool guide_key_down = false;
   bool back_guide_down = false;
+  bool back_tap_down = false;
+  worker_t::task_id_t back_tap_id = nullptr;
   button_state_e back_button_state = button_state_e::NONE;
 };
 namespace util::endian {

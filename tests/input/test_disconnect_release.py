@@ -520,13 +520,35 @@ int main(int argc, char **argv) {
       // Back held past the timeout holds Guide until Back is released, with one indicator pulse then a restore.
       using role_e = platf::gamepad_feedback_msg_t::rumble_role_e;
       config::input.back_button_hold_guide = true;
-      connect(a, 0, 1, platf::BACK); task_pool.fire();
+      connect(a, 0, 1, platf::BACK);
+      assert(state(a).buttonFlags == 0);  // Back is withheld from the game while the timeout runs
+      task_pool.fire();
       assert(state(a).buttonFlags == platf::HOME);
+      for (const auto &event : platf::gamepad_events) assert(!(event.second.buttonFlags & platf::BACK));
       assert(platf::feedback_events.size() == 1 && platf::feedback_events[0].rumble_role == role_e::indicator);
       task_pool.fire();
       assert(platf::feedback_events.size() == 2 && platf::feedback_events[1].rumble_role == role_e::restore);
       connect(a, 0, 1, platf::BACK | 0x1000); assert(state(a).buttonFlags == (platf::HOME | 0x1000));
       connect(a, 0, 1); assert(state(a).buttonFlags == 0); expect({});
+    } else if (test == "guide_back_tap") {
+      // With hold-guide on, a Back released before the timeout reaches the game as a short tap.
+      config::input.back_button_hold_guide = true;
+      connect(a, 0, 1, platf::BACK); assert(state(a).buttonFlags == 0);
+      connect(a, 0, 1, platf::BACK | 0x1000); assert(state(a).buttonFlags == 0x1000);
+      connect(a, 0, 1); assert(state(a).buttonFlags == platf::BACK);
+      task_pool.fire(); assert(state(a).buttonFlags == 0);
+      assert(task_pool.timers.empty() && platf::feedback_events.empty());
+      // A second press while the first tap is still held ends that tap first.
+      connect(a, 0, 1, platf::BACK); connect(a, 0, 1); assert(state(a).buttonFlags == platf::BACK);
+      const auto before = platf::gamepad_events.size();
+      connect(a, 0, 1, platf::BACK);
+      assert(platf::gamepad_events.size() > before && platf::gamepad_events[before].second.buttonFlags == 0);
+      assert(state(a).buttonFlags == 0);
+      connect(a, 0, 1); task_pool.fire(); assert(state(a).buttonFlags == 0); expect({});
+    } else if (test == "guide_back_tap_disconnect") {
+      config::input.back_button_hold_guide = true;
+      connect(a, 0, 1, platf::BACK); connect(a, 0, 1); assert(task_pool.timers.size() == 1);
+      disconnect(a); assert(task_pool.timers.empty()); expect({});
     } else if (test == "guide_disabled_press") {
       connect(a, 0, 1);
       for (bool keyboard_disabled : {false, true}) {
